@@ -1,5 +1,5 @@
 [package]
-name = "url_shortner"
+name = "url_shortener"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,3 +9,4 @@ redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tokio = { version = "1.53.1", features = ["full"] }
+uuid = { version = "1.26.1", features = ["v4", "serde", "v7"] }
