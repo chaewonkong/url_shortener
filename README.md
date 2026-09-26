@@ -17,5 +17,4 @@ curl -i -X POST http://localhost:3000/set \
 In  browser, type shortened URL, then it will automatically redirect page to the original URL.
 
 ## TODO List
-- [ ] Support Redis Cluster
-- [ ] Periodically sync original-URL:shorten-URL from Redis to the persistent data storage; RDB
+- [ ] Base62 encoding/decoding
