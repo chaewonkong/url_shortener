@@ -18,3 +18,5 @@ In  browser, type shortened URL, then it will automatically redirect page to the
 
 ## TODO List
 - [ ] Base62 encoding/decoding
+- [ ] Abstract the storage layer
+- [ ] Storage Layer design
