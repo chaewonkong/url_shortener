@@ -68,6 +68,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_encode_0() {
+        assert_eq!("0", encode(0).unwrap()); // TODO: fix
+    }
+
+    #[test]
     fn test_encode_simple_id() {
         let target = 3844;
         assert_eq!("100", encode(target).unwrap());
