@@ -30,6 +30,9 @@ const DECODE: [u8; 256] = {
 pub fn encode(id: u64) -> Result<String, EncodeError> {
     let mut n = id;
     let mut ret = Vec::<u64>::new();
+    if n == 0 {
+        ret.push(0);
+    }
     while n > 0 {
         let q = n / 62;
         let r = n % 62;
@@ -69,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_encode_0() {
-        assert_eq!("0", encode(0).unwrap()); // TODO: fix
+        assert_eq!("0", encode(0).unwrap());
     }
 
     #[test]
