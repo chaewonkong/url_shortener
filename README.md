@@ -17,6 +17,6 @@ curl -i -X POST http://localhost:3000/set \
 In  browser, type shortened URL, then it will automatically redirect page to the original URL.
 
 ## TODO List
-- [ ] Base62 encoding/decoding
+- [X] Base62 encoding/decoding
 - [ ] Abstract the storage layer
 - [ ] Storage Layer design
