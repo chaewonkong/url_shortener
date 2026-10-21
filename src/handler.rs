@@ -4,17 +4,16 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Redirect},
 };
-use redis::{AsyncCommands, RedisError, Script, aio::ConnectionManager};
+use redis::{AsyncCommands, RedisError, aio::ConnectionManager};
 use serde::Deserialize;
 
-use crate::base62::{DecodeError, EncodeError, decode, encode};
+use crate::random::random_string;
 
 #[derive(Debug)]
 pub enum AppError {
     Redis(RedisError),
     NotFound,
-    Base62EncodeError(EncodeError),
-    Base62DecodeError(DecodeError),
+    CodeExhausted,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,36 +35,18 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "redis error").into_response()
             }
             AppError::NotFound => StatusCode::NOT_FOUND.into_response(),
-            AppError::Base62EncodeError(e) => {
-                eprintln!("encode error: {e:?}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "encode error").into_response()
-            }
-            AppError::Base62DecodeError(e) => {
-                eprintln!("decode error: {e:?}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "decode error").into_response()
-            }
+            AppError::CodeExhausted => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "creation failed, retry later",
+            )
+                .into_response(),
         }
     }
 }
 
-const SET_WITH_ID: &str = r#"
-    local offset_key, key_prefix = unpack(KEYS)
-    local value = ARGV[1]
-
-    if not offset_key or not key_prefix or not value then
-        return redis.error_reply('ERR expected keys or value not provided')
-    end
-
-    local id = redis.call('INCR', offset_key)
-    redis.call('SET', key_prefix .. ':' .. id, value)
-
-    return id
-"#;
-
-const OFFSET_KEY: &str = "offset";
 const KEY_PREFIX: &str = "short";
 
-fn url_key(id: u64) -> String {
+fn url_key(id: &str) -> String {
     return format!("{}:{}", KEY_PREFIX, id);
 }
 
@@ -73,26 +54,28 @@ pub async fn get_url(
     Path(id): Path<String>,
     State(mut con): State<ConnectionManager>,
 ) -> Result<Redirect, AppError> {
-    let decoded_id = decode(&id).map_err(|e| AppError::Base62DecodeError(e))?;
-    let result = con.get::<String, String>(url_key(decoded_id)).await?;
+    let result = con.get::<String, String>(url_key(&id)).await?;
     let uri = format!("https://{}", result);
 
     Ok(Redirect::temporary(&uri))
 }
 
+const BASE_LEN: usize = 7;
+const MAX_LEN: usize = 10;
+const MAX_RETRY: usize = 3;
+
 pub async fn set_url(
     State(mut con): State<ConnectionManager>,
     Json(url): Json<SetUrl>,
 ) -> Result<String, AppError> {
-    // con.set::<_, _, ()>(&id, url.url).await?;
-    let set_script = Script::new(SET_WITH_ID);
-
-    let id: u64 = set_script
-        .key(OFFSET_KEY)
-        .key(KEY_PREFIX)
-        .arg(url.url)
-        .invoke_async(&mut con)
-        .await?;
-
-    encode(id).map_err(|e| AppError::Base62EncodeError(e))
+    for n in BASE_LEN..MAX_LEN {
+        for _ in 0..MAX_RETRY {
+            let id = random_string(n);
+            let created: bool = con.set_nx(url_key(&id), &url.url).await?;
+            if created {
+                return Ok(id);
+            }
+        }
+    }
+    Err(AppError::CodeExhausted)
 }
